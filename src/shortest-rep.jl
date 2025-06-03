@@ -177,5 +177,4 @@ function process_all(dir="../data", thresholds=-(0.02:0.02:0.1))
         Arrow.write(joinpath(dir, "$f.summary.arrow"), summary_df; compress=:zstd)
     end
 
-    return cycle_df, summary_df
 end

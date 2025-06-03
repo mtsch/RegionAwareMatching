@@ -27,21 +27,19 @@ function plot_cycles(
     min_area=100, min_persistence=-Inf,
     dir=joinpath(@__DIR__, "../data"), padding=10, title=L"%$year",
     threshold=-0.02,
+    colormap=:viridis,
     kwargs...
 )
     heat = map(x -> !isfinite(x) ? missing : x, load_data(year))
 
     df = load_cycles(year)
-    if threshold ∉ df.threshold
-        error("bad threshold")
-    end
     df = @rsubset df :area > min_area :threshold == threshold :persistence ≥ min_persistence
     sort!(df, [:area, :persistence]; rev=true)
 
     # Draw the heatmap
     fig = Figure(size=(1920, 1080))
     ax = Axis(fig[1, 1]; title, aspect=1, kwargs...)
-    hm = heatmap!(ax, heat)
+    hm = heatmap!(ax, heat; colormap)
     Colorbar(fig[1, 2], hm; label=L"value$$")
     xlims!(ax, -padding, size(heat, 2) + padding)
     ylims!(ax, -padding, size(heat, 1) + padding)
@@ -60,17 +58,20 @@ function plot_cycles(
         lines!(ax, cycle; label, linewidth, color)
         scatter!(ax, [max_pos]; label, color)
     end
-    Legend(fig[:, 3], ax; merge=true)
+    if !isempty(df)
+        Legend(fig[:, 3], ax; merge=true)
+    end
 
     xlims!(ax, (750,nothing))
     ylims!(ax, (400,nothing))
+    ax.yreversed[] = true
 
     return fig
 end
 
 if false
     for year in 1990:2020
-        for threshold in -(0.02:0.02:0.1)
+        for threshold in (-0.05, -0.5, -0.9)
             filename = joinpath(@__DIR__, "../plots", "$(year)_t$threshold.png")
             f = plot_cycles(year; threshold, min_area=1000)
             save(filename, f)
