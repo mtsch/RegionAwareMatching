@@ -17,7 +17,7 @@ function threshold_representative(filtration::Ripserer.AbstractFiltration, int, 
     return PersistenceInterval(int.birth, int.death, (; int.meta..., representative))
 end
 function threshold_representative(representative::AbstractVector, birth_simplex, thresh)
-    rep_vertices = Set(only(vertices(s)) for s in representative if birth(s) ≤ thresh)
+    rep_vertices = Set(only(vertices(s)) for s in representative if birth(s) < thresh)
     visited = empty(rep_vertices)
     stack = [only(vertices(birth_simplex))]
     representative = eltype(rep_vertices)[]
