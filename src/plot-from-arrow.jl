@@ -1,16 +1,9 @@
 using CairoMakie
 using LaTeXStrings
 using Arrow
-using Rasters, ArchGDAL
 using DataFramesMeta
 
-file_basename(year) = joinpath(
-    @__DIR__, "../data", "Resistance_median_main_component_$year"
-)
-
-load_cycles(year) = DataFrame(Arrow.Table("$(file_basename(year)).cycles.arrow"))
-load_summary(year) = DataFrame(Arrow.Table("$(file_basename(year)).summary.arrow"))
-load_data(year) = Matrix{Float32}(Raster("$(file_basename(year)).tif").data)
+include("data-loading.jl")
 
 function interval_str((b, d))
     b = round(b, sigdigits=3)

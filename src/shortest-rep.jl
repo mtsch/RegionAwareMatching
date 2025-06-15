@@ -5,15 +5,48 @@ using DataFramesMeta
 using Arrow
 using Rasters, ArchGDAL, JSON
 
-function representative_mask(data, interval::PersistenceInterval, threshold=Inf)
-    return representative_mask(data, interval.representative, threshold)
+"""
+    threshold_representative(filtration, interval, thresh)
+
+Prune the representative of the interval to only include vertices that are present at a
+given threshold. Returns a `PersistenceInterval` with the new representative.
+"""
+function threshold_representative(filtration::Ripserer.AbstractFiltration, int, thresh)
+    rep_vertices = threshold_representative(int.representative, int.birth_simplex, thresh)
+    representative = map(v -> simplex(filtration, Val(0), (v,)), rep_vertices)
+    return PersistenceInterval(int.birth, int.death, (; int.meta..., representative))
 end
-function representative_mask(data, representative, threshold=Inf)
-    mask = zeros(Bool, size(data))
-    for c in representative
-        if birth(c) ≤ threshold
-            mask[only(vertices(c))] = true
+function threshold_representative(representative::AbstractVector, birth_simplex, thresh)
+    rep_vertices = Set(only(vertices(s)) for s in representative if birth(s) ≤ thresh)
+    visited = empty(rep_vertices)
+    stack = [only(vertices(birth_simplex))]
+    representative = eltype(rep_vertices)[]
+
+    while !isempty(stack)
+        curr = pop!(stack)
+        push!(representative, curr)
+        for dir in ((-1,0), (1,0), (0,-1), (0,1))
+            neighbour = curr + CartesianIndex(dir)
+            if neighbour ∈ rep_vertices && neighbour ∉ visited
+                push!(visited, neighbour)
+                push!(stack, neighbour)
+            end
         end
+    end
+    return representative
+end
+
+function representative_mask(interval::PersistenceInterval, threshold=Inf)
+    return representative_mask(interval.representative, interval.birth_simplex, threshold)
+end
+function representative_mask(representative, birth_simplex, threshold=Inf)
+    rep = threshold_representative(representative, birth_simplex, threshold)
+
+    height = maximum(v -> v[1], rep)
+    width = maximum(v -> v[2], rep)
+    mask = zeros(Bool, (height, width))
+    for c in rep
+        mask[c] = true
     end
     return mask
 end
@@ -55,11 +88,12 @@ must be match the inputs to ripserer when computing persistent homology, and the
 must be a zero-dimensional interval with a representative.  `step_limit` is a limit to the
 length of the cycle returned and is used to prevent infinite loops.
 """
-function minimum_area_cycle(data, interval; threshold=Inf, step_limit=1_000_000)
+function minimum_area_cycle(interval; threshold=Inf, step_limit=1_000_000)
+
     # Mask is an array double the size of the image and mask[i,j]=true if (i/2,j/2) is in
     # the representative. We want to walk the boundary of the region that contains `true` in
     # counterclockwise order.
-    orig_mask = representative_mask(data, interval.representative, threshold)
+    orig_mask = representative_mask(interval, threshold)
     mask = zeros(Bool, size(orig_mask) .* 2)
     for i in axes(orig_mask, 1), j in axes(orig_mask, 2)
         mask[2i-1:2i, 2j-1:2j] .= orig_mask[i, j]
@@ -120,11 +154,6 @@ function shortest_and_minimum_area_cycles(data, interval; threshold=Inf)
     push!(points, points[1])
     tri = triangulate(unique(points))
     return points, points[get_convex_hull_vertices(tri)], area
-end
-
-function load_data(file, dir=joinpath(@__DIR__, "../data"))
-    fullpath = joinpath(dir, file)
-    data = Matrix{Float32}(Raster(fullpath).data)
 end
 
 function cycles_df(file::String; threshold, dir="../data")
