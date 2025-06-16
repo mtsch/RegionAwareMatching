@@ -79,18 +79,16 @@ function cycle_at_first_merge(int)
     return minimum_area_cycle(int; threshold), threshold
 end
 
-# Example plots
-if false
-    data = load_data(2010)
 
-    diag = ripserer(Cubical(-data); dim_max=0, merge_tree=true, verbose=true, reps=true)[1]
-    diag2 = deepcopy(diag) # backup
+function get_subtree!(intervals, interval)
+    push!(intervals, interval)
+    for child in interval.children
+        get_subtree!(intervals, child)
+    end
+end
 
-    min_area = 2000
-    filter_merge_tree!(x -> area(x) ≥ min_area, diag)
-    filter_merge_tree!(x -> birth(x) < -0.1, diag)
-
-    plot_cycles_merge_tree(data, diag)
-
-    plot_all_at_threshold(data, diag, -0.5)
+function merge_subtree(diagram, root)
+    intervals = PersistenceInterval[]
+    get_subtree!(intervals, root)
+    return PersistenceDiagram(intervals, diagram.meta)
 end

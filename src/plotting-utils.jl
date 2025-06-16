@@ -72,7 +72,7 @@ just before its first child merges into it.
 
 Defined in `doi/10.1111/tgis.12816`.
 """
-function plot_merge_tree_leaf_segmentation(data, diag; merge_tree=true, kwargs...)
+function plot_merge_tree_leaf_segmentation(data, diag; merge_tree=true, legend=true, kwargs...)
     fig = Figure(size=(1920, 1080))
 
     ax = plot_heatmap!(fig, data; kwargs...)
@@ -88,8 +88,14 @@ function plot_merge_tree_leaf_segmentation(data, diag; merge_tree=true, kwargs..
         color = Cycled(i)
 
         plot_cycle!(ax, interval; threshold, label, color, merge_tree)
+
+        if isfinite(death(interval)) && threshold ≠ death(interval)
+            plot_cycle!(ax, interval; threshold=death(interval), label, color, merge_tree=false, linestyle=:dot)
+        end
     end
-    Legend(fig[:,3], ax; merge=true)
+    if legend && !isempty(diag)
+        Legend(fig[:,3], ax; merge=true)
+    end
     return fig
 end
 
@@ -98,7 +104,7 @@ end
 
 Plot each cycle at the same threshold.
 """
-function plot_all_at_threshold(data, diagram, threshold, kwargs...)
+function plot_all_at_threshold(data, diagram, threshold; legend=true, kwargs...)
     fig = Figure(size=(1920, 1080))
 
     ax = plot_heatmap!(fig, data; kwargs...)
@@ -111,6 +117,8 @@ function plot_all_at_threshold(data, diagram, threshold, kwargs...)
         color = Cycled(i)
         plot_cycle!(ax, interval; threshold, color, label)
     end
-    Legend(fig[:,3], ax; merge=true)
+    if legend && !isempty(diagram)
+        Legend(fig[:,3], ax; merge=true)
+    end
     return fig
 end
