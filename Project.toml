@@ -10,3 +10,6 @@ PersistenceDiagrams = "90b4794c-894b-4756-a0f8-5efeb5ddf7ae"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 Ripserer = "aa79e827-bd0b-42a8-9f10-2b302677a641"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[compat]
+ArchGDAL = "0.10.9"

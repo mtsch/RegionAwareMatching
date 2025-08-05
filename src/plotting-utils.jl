@@ -47,16 +47,20 @@ end
 
 Prepare the base heatmap and plot it to `fig`.
 """
-function plot_heatmap!(fig, data; log=false, colormap=:viridis, kwargs...)
+function plot_heatmap!(fig, data; log=false, colormap=:viridis, colorbar=true, kwargs...)
     heat = map(x -> !isfinite(x) ? missing : x, data)
 
     ax = Axis(fig[1, 1]; aspect=1, kwargs...)
     if log
         hm = heatmap!(ax, log10.(heat); colormap)
-        Colorbar(fig[1, 2], hm; label=L"log10 value$$")
+        if colorbar
+            Colorbar(fig[1, 2], hm; label=L"log10 value$$")
+        end
     else
         hm = heatmap!(ax, heat; colormap)
-        Colorbar(fig[1, 2], hm; label=L"value$$")
+        if colorbar
+            Colorbar(fig[1, 2], hm; label=L"value$$")
+        end
     end
 
     ax.yreversed[] = true
@@ -72,20 +76,34 @@ just before its first child merges into it.
 
 Defined in `doi/10.1111/tgis.12816`.
 """
-function plot_merge_tree_leaf_segmentation(data, diag; merge_tree=true, legend=true, kwargs...)
+function plot_merge_tree_leaf_segmentation(diag; kwargs...)
+    data = -diag.filtration.data
+    plot_merge_tree_leaf_segmentation(data, diag; kwargs...)
+    return fig
+end
+function plot_merge_tree_leaf_segmentation(data, diag; kwargs...)
     fig = Figure(size=(1920, 1080))
+    plot_merge_tree_leaf_segmentation!(fig, data, diag; kwargs...)
+    return fig
+end
+function plot_merge_tree_leaf_segmentation!(fig, diag;kwargs...)
+    data = -diag.filtration.data
+    plot_merge_tree_leaf_segmentation!(fig, data, diag; kwargs...)
+end
+function plot_merge_tree_leaf_segmentation!(fig, data, diag; merge_tree=true, legend=true, kwargs...)
 
     ax = plot_heatmap!(fig, data; kwargs...)
 
     for (i, interval) in enumerate(diag)
-        color = Cycled(i)
+        color = Cycled(i ≥ 3 ? i + 1 : i)
         if isempty(interval.children)
             threshold = death(interval)
         else
             threshold = minimum(death, interval.children)
+            @show threshold
         end
         label = L"$%$(interval_str(interval))$ at %$threshold"
-        color = Cycled(i)
+        color = Cycled(i ≥ 3 ? i + 1 : i)
 
         plot_cycle!(ax, interval; threshold, label, color, merge_tree)
 
@@ -93,10 +111,11 @@ function plot_merge_tree_leaf_segmentation(data, diag; merge_tree=true, legend=t
             plot_cycle!(ax, interval; threshold=death(interval), label, color, merge_tree=false, linestyle=:dot)
         end
     end
+    @show legend, merge_tree
     if legend && !isempty(diag)
         Legend(fig[:,3], ax; merge=true)
     end
-    return fig
+    return ax
 end
 
 """
