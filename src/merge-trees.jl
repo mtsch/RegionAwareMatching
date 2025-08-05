@@ -2,7 +2,6 @@ using Ripserer, PersistenceDiagrams
 using GLMakie
 using LaTeXStrings
 
-
 area(interval) = length(interval.representative)
 
 """
@@ -38,10 +37,6 @@ function filter_merge_tree!(f, diagram)
     sort!(diagram, by=birth)
 
     curr_i = 0
-    for i in eachindex(diagram)
-        int = diagram[i]
-        !f(int) && continue
-    end
 
     for i in eachindex(diagram)
         int = diagram[i]

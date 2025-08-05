@@ -62,8 +62,10 @@ function big_plot(diagram; xlims=(900, nothing), ylims=(400, nothing))
     sort!(diagram, by=area, rev=true)
     top3 = deepcopy(merge_subtree(diagram, diagram[1]))
     sort!(top3, by=area, rev=true)
-    filter_merge_tree!(x -> area(x) ≥ area(top3[3]), top3)
+    selected_area = area(top3[3])
+    filter_merge_tree!(x -> area(x) ≥ selected_area, top3)
     sort!(top3, by=area, rev=true)
+    display(top3)
     top3 = top3[1:3]
 
     fig = Figure(size=(800, 600))
@@ -94,9 +96,9 @@ function big_plot(diagram; xlims=(900, nothing), ylims=(400, nothing))
     fig[2:3,1] = subgl_bot = GridLayout()
 
     # MTLS
-    ax = plot_merge_tree_leaf_segmentation!(subgl_bot[1,2], top3; legend=false, merge_tree=false)
+    ax = plot_merge_tree_leaf_segmentation!(subgl_bot[1,2:4], top3; legend=false, merge_tree=false)
     Box(subgl_bot[1,1]; color=RGBAf(0,0,0,0), strokevisible=false)
-    Box(subgl_bot[1,3]; color=RGBAf(0,0,0,0), strokevisible=false)
+    Box(subgl_bot[1,5]; color=RGBAf(0,0,0,0), strokevisible=false)
     xlims!(ax, xlims...)
     ylims!(ax, ylims...)
     ax.yreversed[] = true
