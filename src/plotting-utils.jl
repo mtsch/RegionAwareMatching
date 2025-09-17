@@ -52,12 +52,12 @@ function plot_heatmap!(fig, data; log=false, colormap=:viridis, colorbar=true, k
 
     ax = Axis(fig[1, 1]; aspect=1, kwargs...)
     if log
-        hm = heatmap!(ax, log10.(heat); colormap)
+        hm = image!(ax, log10.(heat); colormap)
         if colorbar
             Colorbar(fig[1, 2], hm; label=L"log10 value$$")
         end
     else
-        hm = heatmap!(ax, heat; colormap)
+        hm = image!(ax, heat; colormap)
         if colorbar
             Colorbar(fig[1, 2], hm; label=L"value$$")
         end
