@@ -1,3 +1,6 @@
+using CairoMakie
+using GeoMakie
+
 include("shortest-rep.jl")
 
 """

@@ -1,5 +1,4 @@
 using Ripserer, PersistenceDiagrams
-using GLMakie
 using LaTeXStrings
 
 area(interval) = length(interval.representative)

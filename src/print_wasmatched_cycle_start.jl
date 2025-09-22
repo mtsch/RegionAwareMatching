@@ -15,6 +15,7 @@ function select_first_child_of_largest()
         merge_tree=true,
         dim_max=0,
         reps=true,
+        verbose=true,
     )[1]
 
     ## Sort by area, descending to make it easier to find the largest one
@@ -31,12 +32,45 @@ function select_first_child_of_largest()
     return selected
 end
 
-function plot_a_cycle(data, interval; kwargs...)
-    fig = Figure(size=(800, 600))
+function plot_a_cycle(year, interval)
+    raster = Raster(joinpath(@__DIR__, "../data/Resistance_median_main_component_$(year).tif"))
+    # replace -Inf with missing for nicer plot
+    data = Matrix{Union{Missing,eltype(raster.data)}}(raster.data)
+    data[.!isfinite.(data)] .= missing
 
-    ax = plot_heatmap!(fig, data; kwargs...)
-    plot!(ax, minimum_area_cycle(selected), color=:orangered3, markersize=2)
+    x_rad, y_rad = dims(raster)
+    x_deg = rad2deg.(x_rad)
+    y_deg = rad2deg.(y_rad)
 
+    fig = Figure()
+    ax = GeoAxis(
+	fig[1, 1];
+        dest=EPSG(4326),
+	limits=(extrema(x_deg), extrema(y_deg)),
+	xticklabelsvisible=false,
+        xgridvisible=false,
+	yticklabelsvisible=false,
+        ygridvisible=false,
+        title=L"%$year"
+    )
+    hm = heatmap!(
+        ax,
+	x_deg,
+        y_deg,
+        data,
+	colorrange=(0, 1),
+        colormap=sequential_palette(240, 500)[75:end]
+    )
+    lines!(GeoMakie.coastlines(), color="black")
+    Colorbar(fig[1, 2], hm)
+
+    # convert cycle to degrees
+    cycle = map(minimum_area_cycle(interval)) do (x, y)
+        mean((x_deg[floor(Int,x)], x_deg[ceil(Int,x)])),
+        mean((y_deg[floor(Int,y)], y_deg[ceil(Int,y)]))
+    end
+
+    plot!(ax, cycle, color=:orangered3, markersize=2)
     return fig
 end
 
@@ -58,7 +92,7 @@ function plot_matched_cycles(selected_interval)
         error("interval $selected_interval not found in persistence diagram!")
     end
 
-    fig = plot_a_cycle(data, selected_interval; title=L"1990")
+    fig = plot_a_cycle(1990, selected_interval)
     save("wasmatch_1990.png", fig)
 
     for year in 1991:2020
@@ -77,7 +111,7 @@ function plot_matched_cycles(selected_interval)
         )
         selected = diagram[selected_index]
 
-        fig = plot_a_cycle(data, selected; title=L"%$year")
+        fig = plot_a_cycle(year, selected)
         save("wasmatch_$(year).png", fig)
     end
 end
