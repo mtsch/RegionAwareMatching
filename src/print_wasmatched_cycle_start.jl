@@ -76,7 +76,7 @@ end
 
 function plot_matched_cycles(selected_interval)
     diagram = ripserer(
-        Cubical(-data; threshold=-0.05);
+        Cubical(-load_data(1990); threshold=-0.05);
         # merge_tree=true,
         dim_max=0,
         reps=true,
