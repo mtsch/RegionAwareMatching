@@ -1,3 +1,6 @@
+# ============================================================= #
+# Code for extracting minimum area cycles from representatives. #
+# ============================================================= #
 using Ripserer, PersistenceDiagrams
 using DelaunayTriangulation
 using StaticArrays

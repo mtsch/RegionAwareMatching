@@ -1,3 +1,6 @@
+# =============================================== #
+# Utility functions for working with merge trees. #
+# =============================================== #
 using Ripserer, PersistenceDiagrams
 using LaTeXStrings
 
@@ -29,8 +32,10 @@ end
 """
     filter_merge_tree!(f, diagram)
 
-Like `filter!` but keeps merge tree structure intact. In-place version.
-TODO: doesn't work if the parent of a kept interval is removed.
+Like `Base.filter!` but keeps merge tree structure intact. In-place version.
+
+!!! warning
+    Doesn't work if the parent of a kept interval is removed.
 """
 function filter_merge_tree!(f, diagram)
     sort!(diagram, by=birth)
@@ -56,33 +61,30 @@ end
 """
     filter_merge_tree(f, diagram)
 
-Like `filter` but keeps merge tree structure intact.
-TODO: doesn't work if the parent of a kept interval is removed.
+Like `Base.filter` but keeps merge tree structure intact.
+
+!!! warning
+    Doesn't work if the parent of a kept interval is removed.
 """
 function filter_merge_tree(f, diagram)
     result = deepcopy(diagram)
     return filter_merge_tree!(f, result)
 end
 
-function cycle_at_first_merge(int)
-    if !isempty(int.children)
-        threshold = minimum(death, int.children)
-    else
-        threshold = death(int)
-    end
-    return minimum_area_cycle(int; threshold), threshold
-end
+"""
+    merge_subtree(diagram, root)
 
-
-function get_subtree!(intervals, interval)
-    push!(intervals, interval)
-    for child in interval.children
-        get_subtree!(intervals, child)
-    end
-end
-
+Create a new diagram that includes the interval `root` and all its descendants.
+"""
 function merge_subtree(diagram, root)
     intervals = PersistenceInterval[]
-    get_subtree!(intervals, root)
+    _merge_subtree!(intervals, root)
     return PersistenceDiagram(intervals, diagram.meta)
+end
+
+function _merge_subtree!(intervals, interval)
+    push!(intervals, interval)
+    for child in interval.children
+        merge_subtree!(intervals, child)
+    end
 end
