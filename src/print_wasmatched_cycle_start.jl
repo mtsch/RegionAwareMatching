@@ -101,7 +101,6 @@ function plot_matched_cycles(selected_interval)
         matching_dict = Dict{Int,Int}(zip(matching[:,1] .+ 1, matching[:,2] .+ 1))
 
         selected_index = matching_dict[selected_index]
-        @info "Year $year selected index: $selected_index"
 
         diagram = first(
             ripserer(
@@ -110,6 +109,7 @@ function plot_matched_cycles(selected_interval)
             )
         )
         selected = diagram[selected_index]
+        @info "Year $year selected index: $selected_index, interval: $selected, area: $(area(selected)), sx: $(birth_simplex(selected))"
 
         fig = plot_a_cycle(year, selected)
         save("wasmatch_$(year).png", fig)

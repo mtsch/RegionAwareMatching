@@ -91,7 +91,7 @@ function plot_heatmap(raster::Raster; kwargs...)
 end
 
 """
-    plot_cycle!(ax, interval; threshold=death(interval), birth_simplex=true, kwargs...)
+    plot_cycle!(ax, data, interval; threshold=death(interval), birth_simplex=true, kwargs...)
 
 Plot an interval as a cycle at a given `threshold`. `kwargs` are passed to `lines!`.
 """
@@ -168,18 +168,16 @@ function plot_merge_tree_leaf_segmentation!(
             threshold = death(interval)
         else
             threshold = minimum(death, interval.children)
-            @show threshold
         end
         label = L"$%$(interval_str(interval))$ at %$threshold"
         color = Cycled(i ≥ 3 ? i + 1 : i)
 
-        plot_cycle!(ax, interval; threshold, label, color, merge_tree)
+        plot_cycle!(ax, data, interval; threshold, label, color, merge_tree)
 
         if isfinite(death(interval)) && threshold ≠ death(interval)
-            plot_cycle!(ax, interval; threshold=death(interval), label, color, merge_tree=false, linestyle=:dot)
+            plot_cycle!(ax, data, interval; threshold=death(interval), label, color, merge_tree=false, linestyle=:dot)
         end
     end
-    @show legend, merge_tree
     if legend && !isempty(diag)
         Legend(fig[:,3], ax; merge=true)
     end
@@ -203,7 +201,6 @@ function plot_all_at_threshold(
 
     for (i, interval) in enumerate(diagram)
         if -death(interval) ≤ threshold ≤ -birth(interval)
-            println(threshold => interval)
             label = L"$%$(interval_str(interval))$"
             color = Cycled(i)
             plot_cycle!(ax, data, interval; threshold, color, label, birth_simplex)

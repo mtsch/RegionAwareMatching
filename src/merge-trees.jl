@@ -85,6 +85,6 @@ end
 function _merge_subtree!(intervals, interval)
     push!(intervals, interval)
     for child in interval.children
-        merge_subtree!(intervals, child)
+        _merge_subtree!(intervals, child)
     end
 end
