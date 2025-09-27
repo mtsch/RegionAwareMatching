@@ -11,7 +11,7 @@ include("plotting-utils.jl")
 function select_first_child_of_largest()
     data = load_data(1990)
     diagram = ripserer(
-        Cubical(-data; threshold=-0.05);
+        Cubical(-data);
         merge_tree=true,
         dim_max=0,
         reps=true,
@@ -76,8 +76,8 @@ end
 
 function plot_matched_cycles(selected_interval)
     diagram = ripserer(
-        Cubical(-load_data(1990); threshold=-0.05);
-        # merge_tree=true,
+        Cubical(-load_data(1990));
+        merge_tree=true,
         dim_max=0,
         reps=true,
         verbose=true,
@@ -96,7 +96,7 @@ function plot_matched_cycles(selected_interval)
     save("wasmatch_1990.png", fig)
 
     for year in 1991:2020
-        matching = CSV.read("../data/matching_$(year-1)_$(year).csv", DataFrame)
+        matching = CSV.read("../data/matching_$(year-1)_$(year)_nothresh.csv", DataFrame)
 
         matching_dict = Dict{Int,Int}(zip(matching[:,1] .+ 1, matching[:,2] .+ 1))
 
@@ -104,7 +104,7 @@ function plot_matched_cycles(selected_interval)
 
         diagram = first(
             ripserer(
-                Cubical(-load_data(year); threshold=-0.05);
+                Cubical(-load_data(year));
                 merge_tree=true, dim_max=0, reps=true, verbose=true,
             )
         )

@@ -202,7 +202,7 @@ function plot_all_at_threshold(
     for (i, interval) in enumerate(diagram)
         if -death(interval) ≤ threshold ≤ -birth(interval)
             label = L"$%$(interval_str(interval))$"
-            color = Cycled(i)
+            color = Cycled(i + 1)
             plot_cycle!(ax, data, interval; threshold, color, label, birth_simplex)
         end
     end

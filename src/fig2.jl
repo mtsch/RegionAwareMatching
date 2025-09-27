@@ -6,13 +6,13 @@ function diagram_plot(diagram, selected)
         int.birth_simplex ∉ birth_simplex.(selected)
     end
 
-    fig = Figure()
+    fig = Figure(size=(370, 300))
 
     hi = -minimum(b for (b, _) in diagram)
     lo = -maximum(d for (_, d) in diagram if isfinite(d))
-    inf = round(2lo) / 2
+    inf = round(4lo) / 4
 
-    xticks = (0:0.1:1.1, [i == inf ? L"-∞" : "$i" for i in 0:0.1:1.1])
+    xticks = (0:0.2:1.2, [i == inf ? L"-∞" : "$i" for i in 0:0.2:1.2])
 
     ax = Axis(fig[1, 1]; xlabel=L"death$$", ylabel=L"birth$$", aspect=1, xticks)
 
@@ -24,7 +24,7 @@ function diagram_plot(diagram, selected)
 
     scatter!(ax, diag_points; color=:gray, markersize=2, marker=:diamond)
     for (i, pt) in enumerate(sel_points)
-        color = Cycled(i)
+        color = Cycled(i + 1)
         scatter!(ax, [pt]; color)
     end
 
@@ -32,7 +32,7 @@ function diagram_plot(diagram, selected)
 end
 
 function prepare_fig2(
-    diagram=nothing; year=2002, thresholds=(0.15, 0.5, 0.7, 0.9), min_area=1000
+    diagram=nothing; year=2002, thresholds=(0.15, 0.5, 0.7, 0.9), min_area=nothing
 )
 
     raster = load_data(year; raster=true)
@@ -53,8 +53,14 @@ function prepare_fig2(
             -death(int) ≤ t ≤ -birth(int)
         end
     end
+    sort!(selected, by=area; rev=true)
     selected = filter(diagram) do int
-        area(int) > min_area
+        if isnothing(min_area)
+            # only keep top 3
+            area(int) ≥ area(selected[3])
+        else
+            area(int) > min_area
+        end
     end
     display(collect(zip(selected, area.(selected))))
 
