@@ -1,7 +1,7 @@
 using Rasters, ArchGDAL
 
 file_basename(year) = joinpath(
-    @__DIR__, "../data", "Resistance_median_main_component_$year"
+    @__DIR__, "../data/tif", "data_main_component_$year"
 )
 
 load_cycles(year) = DataFrame(Arrow.Table("$(file_basename(year)).cycles.arrow"))
