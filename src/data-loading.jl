@@ -28,13 +28,13 @@ function load_data(year; raster=false)
     end
 end
 
-_to_indices(::Nothing) = nothing
-_to_indices(c::Cube{0}) = Tuple(only(vertices(c)))
-_to_indices(c::Cube{1}) = Tuple.(vertices(c))
-_from_indices(_, ::Nothing) = nothing
-_from_indices(flt, indices::Tuple{Int,Int}) =
+to_indices(::Nothing) = nothing
+to_indices(c::Cube{0}) = Tuple(only(vertices(c)))
+to_indices(c::Cube{1}) = Tuple.(vertices(c))
+from_indices(_, ::Nothing) = nothing
+from_indices(flt, indices::Tuple{Int,Int}) =
     simplex(flt, Val(0), (CartesianIndex(indices),))
-_from_indices(flt, indices::Tuple{Tuple,Tuple}) =
+from_indices(flt, indices::Tuple{Tuple,Tuple}) =
     simplex(flt, Val(1), CartesianIndex.(indices))
 
 """
@@ -51,10 +51,10 @@ function save_diagram(filename, diagram)
     index_map = Dict(zip(birth_simplex.(diagram), eachindex(diagram)))
 
     df = mapreduce(vcat, enumerate(diagram)) do (id, interval)
-        representative = map(_to_indices, interval.representative)
-        parent = _to_indices(interval.parent_simplex)
-        birth = _to_indices(interval.birth_simplex)
-        death = _to_indices(interval.death_simplex)
+        representative = map(to_indices, interval.representative)
+        parent = to_indices(interval.parent_simplex)
+        birth = to_indices(interval.birth_simplex)
+        death = to_indices(interval.death_simplex)
 
         DataFrame(; id, birth, death, parent, representative)
     end
@@ -86,9 +86,9 @@ function load_diagram(diagram_file, data_file)
             simplex(filtration, Val(0), (vx,))
         end
 
-        birth_simplex = _from_indices(filtration, d.birth[1])
-        death_simplex = _from_indices(filtration, d.death[1])
-        parent_simplex = _from_indices(filtration, d.parent[1])
+        birth_simplex = from_indices(filtration, d.birth[1])
+        death_simplex = from_indices(filtration, d.death[1])
+        parent_simplex = from_indices(filtration, d.parent[1])
 
         interval = PersistenceInterval(
             birth(birth_simplex), isnothing(death_simplex) ? Inf : birth(death_simplex);
