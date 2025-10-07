@@ -74,14 +74,8 @@ function plot_a_cycle(year, interval)
     return fig
 end
 
-function plot_matched_cycles(selected_interval)
-    diagram = ripserer(
-        Cubical(-load_data(1990); threshold=-0.05);
-        # merge_tree=true,
-        dim_max=0,
-        reps=true,
-        verbose=true,
-    )[1]
+function plot_matched_cycles(selected_interval; file_postfix="_cut0.001", start_at=1990)
+    diagram = load_diagram(start_at)
 
     selected_index = findfirst(diagram) do int
         int.birth_simplex == selected_interval.birth_simplex
@@ -109,7 +103,28 @@ function plot_matched_cycles(selected_interval)
                 merge_tree=true, dim_max=0, reps=true, verbose=true,
             )
         )
-        selected = diagram[selected_index]
+
+        row = findfirst(matching.left) do id
+            !ismissing(id) && id == selected_interval_id
+        end
+        if isnothing("row")
+            error("row not found in matching.left")
+        end
+        selected_interval_id = matching[row, :right]
+
+        if ismissing(selected_interval_id)
+            @info "Matched to the diagonal."
+            return
+        end
+
+
+        diagram = load_diagram(year)
+        index_in_diagram = findfirst(diagram) do interval
+            to_indices(interval.birth_simplex) == selected_interval_id
+        end
+        selected = diagram[index_in_diagram]
+
+        @info "Year $year selected id: $selected_interval_id ($(selected))"
 
         fig = plot_a_cycle(year, selected)
         save("wasmatch_$(year).png", fig)
@@ -118,5 +133,5 @@ end
 
 if !isinteractive()
     selected_interval = select_first_child_of_largest()
-    plot_matched_cycles(selected_interval)
+    plot_matched_cycles(selected_interval; file_postfix="_cut0.0001")
 end
