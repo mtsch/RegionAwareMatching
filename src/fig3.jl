@@ -19,46 +19,24 @@ function pick_top_3_cycles(data; min_persistence=0.05)
     #return sort!(filtered; by=area, rev=true)
 end
 
-function plot_at_time!(ax, diagram, threshold)
+function plot_at_time!(ax, data, diagram, threshold)
     for (i, int) in enumerate(diagram)
         if birth(int) ≤ threshold ≤ death(int)
-            plot_cycle!(ax, int; threshold, color=Cycled(i ≥ 3 ? i + 1 : i), birth_simplex=false)
+            plot_cycle!(ax, data, int; threshold, color=Cycled(i ≥ 3 ? i + 1 : i), birth_simplex=false)
         elseif death(int) ≤ threshold
-            plot_cycle!(ax, int; threshold, color=Cycled(i ≥ 3 ? i + 1 : i), linestyle=:dot, birth_simplex=false)
+            plot_cycle!(ax, data, int; threshold, color=Cycled(i ≥ 3 ? i + 1 : i), linestyle=:dot, birth_simplex=false)
         end
     end
-end
-
-function plot_diagram!(fig, diagram; N=3)
-    ax = Axis(fig[1, 1]; xlabel=L"birth$$", ylabel=L"death$$")
-    time = (minimum(birth, diagram), maximum(filter(isfinite, death.(diagram))) * 1.1)
-    infty = time[2]
-
-    lines!(ax, [time[1], time[2]], [time[1], time[2]]; color=:gray, linestyle=:dash)
-    hlines!(ax, [infty]; color=:gray, linestyle=:dot)
-
-    scatter!(ax, map(x -> (x[1], min(x[2], infty)), diagram[N+1:end]); color=:gray)
-
-    for i in 1:N
-        b, d = diagram[i]
-        if !isfinite(d)
-            d = infty
-        end
-        scatter!(ax, [(b, d)]; label=L"%$(interval_str(diagram[i]))", color=Cycled(i),
-                 marker=:diamond, markersize=20)
-    end
-    Legend(fig[1, 2], ax)
-    fig
 end
 
 function big_plot(year; kwargs...)
+    raster = load_data(year; raster=true)
     data = load_data(year)
     diagram = pick_top_3_cycles(data)
-    return big_plot(diagram; kwargs...)
+    return big_plot(raster, diagram; kwargs...)
 end
 
-function big_plot(diagram; xlims=(900, nothing), ylims=(400, nothing))
-    data = -diagram.filtration.data
+function big_plot(data, diagram; xlims=(900, nothing), ylims=(400, nothing))
     sort!(diagram, by=area, rev=true)
     top3 = deepcopy(merge_subtree(diagram, diagram[1]))
     sort!(top3, by=area, rev=true)
@@ -74,7 +52,7 @@ function big_plot(diagram; xlims=(900, nothing), ylims=(400, nothing))
 
     # Plot snapshots
     kws = (;xticklabelsvisible=false, yticklabelsvisible=false)
-    top_axes = Vector{Axis}(undef, 4)
+    top_axes = Vector{GeoAxis}(undef, 4)
     top_axes[1] = plot_heatmap!(subgl_top[2,1], data; colorbar=false, kws...)
     top_axes[2] = plot_heatmap!(subgl_top[2,2], data; colorbar=false, kws...)
     top_axes[3] = plot_heatmap!(subgl_top[2,3], data; colorbar=false, kws...)
@@ -86,7 +64,7 @@ function big_plot(diagram; xlims=(900, nothing), ylims=(400, nothing))
 
     for (i, (ax, time)) in enumerate(zip(top_axes, times))
         Label(subgl_top[1,i], L"t=%$(round(time; digits=3))")
-        plot_at_time!(ax, top3, -time)
+        plot_at_time!(ax, data, top3, -time)
         xlims!(ax, xlims...)
         ylims!(ax, ylims...)
         ax.yreversed[] = true
