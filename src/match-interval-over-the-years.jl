@@ -1,22 +1,10 @@
-## This code finds the cycle in year 1990 that we want to follow until 2020
-### !!! When switching between julia and python be aware of index shift !!!
-using Ripserer
-using CSV
-
 ## Scripts from the git repo
 include("data-loading.jl")
 include("merge-trees.jl")
 include("plotting-utils.jl")
 
-function select_first_child_of_largest()
-    data = load_data(1990)
-    diagram = ripserer(
-        Cubical(-data; threshold=-0.05);
-        merge_tree=true,
-        dim_max=0,
-        reps=true,
-        verbose=true,
-    )[1]
+function select_first_child_of_largest(year=1990)
+    diagram = load_diagram(year)
 
     ## Sort by area, descending to make it easier to find the largest one
     sort!(diagram; by=area, rev=true)
@@ -33,7 +21,7 @@ function select_first_child_of_largest()
 end
 
 function plot_a_cycle(year, interval)
-    raster = Raster(joinpath(@__DIR__, "../data/Resistance_median_main_component_$(year).tif"))
+    raster = load_data(year; raster=true)
     # replace -Inf with missing for nicer plot
     data = Matrix{Union{Missing,eltype(raster.data)}}(raster.data)
     data[.!isfinite.(data)] .= missing
@@ -75,39 +63,23 @@ function plot_a_cycle(year, interval)
 end
 
 function plot_matched_cycles(selected_interval; file_postfix="_cut0.001", start_at=1990)
+function plot_matched_cycles(selected_interval; file_postfix="_cut1.0e-5", start_at=1990)
     diagram = load_diagram(start_at)
 
-    selected_index = findfirst(diagram) do int
-        int.birth_simplex == selected_interval.birth_simplex
-    end
-    @info "Year 1990 selected index: $selected_index"
+    fig = plot_a_cycle(start_at, selected_interval)
+    save("wasmatch_$(start_at).png", fig)
 
-    if isnothing(selected_index)
-        error("interval $selected_interval not found in persistence diagram!")
-    end
+    selected_interval_id = to_indices(selected_interval.birth_simplex)
 
-    fig = plot_a_cycle(1990, selected_interval)
-    save("wasmatch_1990.png", fig)
-
-    for year in 1991:2020
-        matching = CSV.read("../data/matching_$(year-1)_$(year).csv", DataFrame)
-
-        matching_dict = Dict{Int,Int}(zip(matching[:,1] .+ 1, matching[:,2] .+ 1))
-
-        selected_index = matching_dict[selected_index]
-        @info "Year $year selected index: $selected_index"
-
-        diagram = first(
-            ripserer(
-                Cubical(-load_data(year); threshold=-0.05);
-                merge_tree=true, dim_max=0, reps=true, verbose=true,
-            )
+    for year in start_at+1:2020
+        matching = DataFrame(
+            Arrow.Table("../data/match/match_$(year-1)_$(year)$(file_postfix).arrow"),
         )
 
         row = findfirst(matching.left) do id
             !ismissing(id) && id == selected_interval_id
         end
-        if isnothing("row")
+        if isnothing(row)
             error("row not found in matching.left")
         end
         selected_interval_id = matching[row, :right]
