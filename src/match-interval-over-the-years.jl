@@ -3,7 +3,7 @@ include("data-loading.jl")
 include("merge-trees.jl")
 include("plotting-utils.jl")
 
-function select_first_child_of_largest(year=1990)
+function select_first_child_of_largest(n=1; year=1990, cutoff=0.05)
     diagram = load_diagram(year)
 
     ## Sort by area, descending to make it easier to find the largest one
@@ -11,16 +11,32 @@ function select_first_child_of_largest(year=1990)
 
     ## The diagram is a bit too big, so you should probably filter the tree. Below is the
     ## code that keeps the intervals that have persistence larger than 0.05.
-    filtered = filter_merge_tree(x -> persistence(x) ≥ 0.05, diagram)
+    filtered = filter_merge_tree(x -> persistence(x) ≥ cutoff, diagram)
 
     largest = filtered[1]
     filtered = merge_subtree(filtered, largest)
 
-    selected = argmin(death, largest.children)
-    return selected
+    children = sort(largest.children; by=death, rev=true)
+    return children[1:n]
 end
 
-function plot_a_cycle(year, interval)
+function select_first_child_and_grandchild(; year=1990, cutoff=0.05)
+    diagram = load_diagram(year)
+
+    sort!(diagram; by=area, rev=true)
+    filtered = filter_merge_tree(x -> persistence(x) ≥ cutoff, diagram)
+
+    largest = filtered[1]
+    filtered = merge_subtree(filtered, largest)
+
+    child = argmax(death, largest.children)
+    grandchild = argmax(death, child.children)
+
+    return [child, grandchild]
+end
+
+
+function plot_a_cycle(year, intervals)
     raster = load_data(year; raster=true)
     # replace -Inf with missing for nicer plot
     data = Matrix{Union{Missing,eltype(raster.data)}}(raster.data)
@@ -53,57 +69,80 @@ function plot_a_cycle(year, interval)
     Colorbar(fig[1, 2], hm)
 
     # convert cycle to degrees
-    cycle = map(minimum_area_cycle(interval)) do (x, y)
-        mean((x_deg[floor(Int,x)], x_deg[ceil(Int,x)])),
-        mean((y_deg[floor(Int,y)], y_deg[ceil(Int,y)]))
-    end
+    for (i, interval) in enumerate(intervals)
+        ismissing(interval) && continue
+        cycle = map(minimum_area_cycle(interval)) do (x, y)
+            mean((x_deg[floor(Int,x)], x_deg[ceil(Int,x)])),
+            mean((y_deg[floor(Int,y)], y_deg[ceil(Int,y)]))
+        end
 
-    plot!(ax, cycle, color=:orangered3, markersize=2)
+        plot!(ax, cycle, color=Cycled(i), markersize=2)
+    end
     return fig
 end
 
-function plot_matched_cycles(selected_interval; file_postfix="_cut0.001", start_at=1990)
-function plot_matched_cycles(selected_interval; file_postfix="_cut1.0e-5", start_at=1990)
-    diagram = load_diagram(start_at)
+function track_interval(interval; file_postfix="_cut1.0e-5", start_at=1990)
+    result = Vector{Union{Missing,PersistenceInterval}}(undef, length(start_at:2020))
+    result .= missing
+    interval_id = to_indices(interval.birth_simplex)
 
-    fig = plot_a_cycle(start_at, selected_interval)
-    save("wasmatch_$(start_at).png", fig)
+    result[1] = interval
+    for (i, year) in enumerate(start_at:2020)
+        year == start_at && continue
 
-    selected_interval_id = to_indices(selected_interval.birth_simplex)
-
-    for year in start_at+1:2020
         matching = DataFrame(
             Arrow.Table("../data/match/match_$(year-1)_$(year)$(file_postfix).arrow"),
         )
 
         row = findfirst(matching.left) do id
-            !ismissing(id) && id == selected_interval_id
+            !ismissing(id) && id == interval_id
         end
         if isnothing(row)
-            error("row not found in matching.left")
+            @warn "row not found in matching.left"
+            return result
         end
-        selected_interval_id = matching[row, :right]
+        interval_id = matching[row, :right]
 
-        if ismissing(selected_interval_id)
+        if ismissing(interval_id)
             @info "Matched to the diagonal."
-            return
+            return result
         end
-
 
         diagram = load_diagram(year)
         index_in_diagram = findfirst(diagram) do interval
-            to_indices(interval.birth_simplex) == selected_interval_id
+            to_indices(interval.birth_simplex) == interval_id
         end
-        selected = diagram[index_in_diagram]
+        interval = diagram[index_in_diagram]
+        result[i] = interval
+    end
+    return result
+end
 
-        @info "Year $year selected id: $selected_interval_id ($(selected))"
+function plot_matched_cycles(selected_interval::PersistenceInterval; kwargs...)
+    return  plot_matched_cycles((selected_interval,); kwargs...)
+end
+function plot_matched_cycles(selected_intervals; name="wasmatch_", kwargs...)
+    diagram = load_diagram(start_at)
 
-        fig = plot_a_cycle(year, selected)
-        save("wasmatch_$(year).png", fig)
+    interval_sequences = map(x -> track_interval(x; kwargs...), selected_intervals)
+
+    for (i, year) in enumerate(1990:2020)
+        selected_intervals = map(x -> x[i], interval_sequences)
+        fig = plot_a_cycle(year, selected_intervals)
+        save("$(name)$(year).png", fig)
     end
 end
 
 if !isinteractive()
+    # Old
     selected_interval = select_first_child_of_largest()
-    plot_matched_cycles(selected_interval; file_postfix="_cut0.0001")
+    plot_matched_cycles(selected_interval; name="one-child-")
+
+    # Two ch's
+    selected_intervals = select_first_child_of_largest(2; cutoff=0)
+    plot_matched_cycles(selected_intervals; name="two-children-")
+
+    #  Grandchildren
+    selected_intervals = select_first_child_and_grandchild()
+    plot_matched_cycles(selected_intervals; name="child-grandchild")
 end
