@@ -51,6 +51,7 @@ function representative_mask(representative, birth_simplex, threshold=Inf)
     for c in rep
         mask[c] = true
     end
+    # println(length(Set(rep)))
     return mask
 end
 
@@ -84,14 +85,16 @@ Base.size(::Neighbourhood) = (3,3)
 Base.getindex(n::Neighbourhood, args...) = getindex(getfield(n, :mask), args...)
 
 """
-    minimum_area_cycle(data, interval; threshold=Inf, step_limit=1_000_000)
+    minimum_area_cycle_old(data, interval; threshold=Inf, step_limit=1_000_000)
+
+NOTE: This is the original version of minimum_area_cycle, but runs slower.
 
 Find the minimum area cycle in `data` for a given `interval`. The `data` and `threshold`
 must be match the inputs to ripserer when computing persistent homology, and the `interval`
 must be a zero-dimensional interval with a representative.  `step_limit` is a limit to the
 length of the cycle returned and is used to prevent infinite loops.
 """
-function minimum_area_cycle(interval; threshold=Inf, step_limit=1_000_000)
+function minimum_area_cycle_old(interval; threshold=Inf, step_limit=1_000_000)
 
     # Mask is an array double the size of the image and mask[i,j]=true if (i/2,j/2) is in
     # the representative. We want to walk the boundary of the region that contains `true` in
@@ -144,6 +147,163 @@ function minimum_area_cycle(interval; threshold=Inf, step_limit=1_000_000)
 end
 
 """
+    minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int=1_000_000)
+    
+NOTE: This is a revised version of minimum_area_cycle_old that runs faster.
+
+Find the minimum area cycle in `data` for a given `interval`. The `data` and `threshold`
+must be match the inputs to ripserer when computing persistent homology, and the `interval`
+must be a zero-dimensional interval with a representative.  `step_limit` is a limit to the
+length of the cycle returned and is used to prevent infinite loops.
+
+# Arguments
+- `interval`: A PersistenceInterval with representative and birth_simplex
+- `threshold`: Threshold value
+- `step_limit`: Maximum number of steps in boundary tracing
+
+# Returns
+- Vector of (x, y) tuples at half-integer coordinates, 8-connected boundary (closed cycle)
+- Set of CartesianIndex corresponding to pixels in the cycle
+"""
+function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=1_000_000)
+    representative = interval.representative
+    birth_simplex = interval.birth_simplex
+    
+    if isempty(representative)
+        return Tuple{Float64,Float64}[]
+    end
+    
+    # Build a map from CartesianIndex to cubes for efficient lookup
+    pixel_to_cube = Dict{CartesianIndex{2}, eltype(representative)}()
+    # @time for cube in representative
+    #     v = only(vertices(cube))
+    #     pixel_to_cube[v] = cube
+    # end
+    pixel_to_cube = Dict(only(vertices(cube)) => cube for cube in representative)
+
+    
+    # Get starting pixel (global minimum - the birth simplex)
+    birth_vertex = only(vertices(birth_simplex))
+    
+    # DFS to find connected component of sublevel set containing birth_vertex
+    region_set = Set{CartesianIndex{2}}()
+    stack = CartesianIndex{2}[birth_vertex]
+    # allocate memory once
+    sizehint!(region_set, length(representative)) 
+    sizehint!(stack, 4length(representative))
+    
+    # 4-connectivity offsets
+    OFFSETS = (
+        CartesianIndex(1, 0),
+        CartesianIndex(-1, 0),
+        CartesianIndex(0, 1),
+        CartesianIndex(0, -1)
+    )
+    
+    while !isempty(stack)
+        curr = pop!(stack)
+        
+        curr in region_set && continue
+        
+        # Check if curr is in representative and has f < threshold
+        cube = get(pixel_to_cube, curr, nothing)
+        if isnothing(cube) || birth(cube) >= threshold
+            continue
+        end
+        
+        push!(region_set, curr)
+        
+        # Add 4-connected neighbors to stack
+        for offset in OFFSETS
+            neighbor = curr + offset
+            neighbor ∉ region_set && push!(stack, neighbor)
+        end
+    end
+    
+    if isempty(region_set)
+        return Tuple{Float64,Float64}[]
+    end
+
+    # println(length(region_set))
+    
+    # Find starting point for tracing: leftmost-topmost pixel (lexicographically smallest)
+    start_pixel_trace = minimum(x -> x.I, region_set)
+    
+    # Start one position west (outside region), on the 2x upscaled grid
+    # Use plain integers instead of tuples
+    curr_i = 2 * start_pixel_trace[1] - 1
+    curr_j = 2 * start_pixel_trace[2] - 2
+    start_i = curr_i
+    start_j = curr_j
+    
+    boundary = Tuple{Float64,Float64}[]
+    
+    # Helper to check if a position on 2x grid is inside region
+    # Inline everything to avoid allocations
+    @inline function in_region_inline(i::Int, j::Int)
+        pixel_idx = CartesianIndex(div(i + 1, 2), div(j + 1, 2))
+        return pixel_idx in region_set
+    end
+    
+    prev_point_i = typemin(Int)
+    prev_point_j = typemin(Int)
+    
+    for _ in 1:step_limit
+        # Get 8-neighborhood - compute directly without allocations
+        south = in_region_inline(curr_i + 1, curr_j)
+        south_east = in_region_inline(curr_i + 1, curr_j + 1)
+        east = in_region_inline(curr_i, curr_j + 1)
+        north_east = in_region_inline(curr_i - 1, curr_j + 1)
+        north = in_region_inline(curr_i - 1, curr_j)
+        north_west = in_region_inline(curr_i - 1, curr_j - 1)
+        west = in_region_inline(curr_i, curr_j - 1)
+        south_west = in_region_inline(curr_i + 1, curr_j - 1)
+        
+        # Convert to half-integer coordinates
+        # Use fld (floor division) to match minimum_area_cycle exactly
+        point_i = fld(curr_i, 2)
+        point_j = fld(curr_j, 2)
+        
+        # Avoid duplicates - only check coordinates directly
+        if point_i != prev_point_i || point_j != prev_point_j
+            push!(boundary, (point_i + 0.5, point_j + 0.5))
+            prev_point_i = point_i
+            prev_point_j = point_j
+        end
+        
+        # Moore neighborhood boundary tracing (same rules as minimum_area_cycle)
+        # Move south
+        if (west || south_west) && !south
+            curr_i += 1
+        # Move east
+        elseif (south || south_east) && !east
+            curr_j += 1
+        # Move north
+        elseif (east || north_east) && !north
+            curr_i -= 1
+        # Move west
+        elseif (north || north_west) && !west
+            curr_j -= 1
+        else
+            # Should not reach here for valid regions
+            break
+        end
+        
+        if curr_i == start_i && curr_j == start_j
+            # Add the starting point again to close the cycle
+            point_i = fld(curr_i, 2)
+            point_j = fld(curr_j, 2)
+            if point_i != prev_point_i || point_j != prev_point_j
+                push!(boundary, (point_i + 0.5, point_j + 0.5))
+            end
+            break
+        end
+    end
+    
+    return (boundary, region_set)
+end
+
+"""
     shortest_and_minimum_area_cycles(data, interval; threshold=Inf)
 
 Find the minimum area cycle and the shortest cycle in `data` for a given `interval`. The
@@ -153,7 +313,7 @@ homology, and the `interval` must be a zero-dimensional interval with a represen
 loops.
 """
 function shortest_and_minimum_area_cycles(data, interval; threshold=Inf)
-    points = unique!(minimum_area_cycle(data, interval; threshold))
+    points = unique!(minimum_area_cycle(interval; threshold)[1])
     push!(points, points[1])
     tri = triangulate(unique(points))
     return points, points[get_convex_hull_vertices(tri)], area
@@ -181,7 +341,7 @@ function cycles_df(data, file=""; threshold)
 
         push!(summary_df, (; file, threshold, interval=int_tuple, persistence=pers, max_pos, area))
 
-        cycle = minimum_area_cycle(data, interval; threshold)
+        cycle = minimum_area_cycle(interval; threshold)[1]
 
         for p in cycle
             push!(df, (

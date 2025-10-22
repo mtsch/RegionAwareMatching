@@ -108,7 +108,7 @@ function plot_cycle!(
     x_deg = rad2deg.(x_rad)
     y_deg = rad2deg.(y_rad)
 
-    cycle = minimum_area_cycle(interval; threshold=threshold)
+    cycle, _ = minimum_area_cycle(interval; threshold=threshold)
 
     remapped_cycle = map(cycle) do (x, y)
         (
