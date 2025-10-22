@@ -91,12 +91,12 @@ function plot_heatmap(raster::Raster; kwargs...)
 end
 
 """
-    plot_cycle!(ax, data, interval; threshold=death(interval), birth_simplex=true, kwargs...)
+    plot_cycle!(ax, raster, interval; threshold=death(interval), birth_simplex=true, kwargs...)
 
 Plot an interval as a cycle at a given `threshold`. `kwargs` are passed to `lines!`.
 """
 function plot_cycle!(
-    ax, data::Raster, interval;
+    ax, raster::Raster, interval;
     linestyle=:solid,
     linewidth=2,
     threshold=death(interval),
@@ -108,7 +108,7 @@ function plot_cycle!(
     x_deg = rad2deg.(x_rad)
     y_deg = rad2deg.(y_rad)
 
-    cycle = minimum_area_cycle(interval; threshold=-threshold)
+    cycle = minimum_area_cycle(interval; threshold=threshold)
 
     remapped_cycle = map(cycle) do (x, y)
         (
@@ -135,15 +135,15 @@ function plot_cycle!(
     end
     return ax
 end
-function plot_cycle(data::Raster, interval; kwargs...)
+function plot_cycle(raster::Raster, interval; kwargs...)
     fig = Figure()
-    ax = plot_heatmap!(fig, data)
-    plot_cycle!(ax, data, interval; kwargs...)
+    ax = plot_heatmap!(fig, raster)
+    plot_cycle!(ax, raster, interval; kwargs...)
     return fig
 end
 
 """
-    plot_merge_tree_leaf_segmentation(data, diagram; merge_tree=true, kwargs...)
+    plot_merge_tree_leaf_segmentation(raster, diagram; merge_tree=true, kwargs...)
 
 
 Plot each interval in `diagram` and possibly a merge tree. Each cycle is plotted at a time
@@ -151,16 +151,16 @@ just before its first child merges into it.
 
 Defined in `doi/10.1111/tgis.12816`.
 """
-function plot_merge_tree_leaf_segmentation(data::Raster, diag; kwargs...)
+function plot_merge_tree_leaf_segmentation(raster::Raster, diag; kwargs...)
     fig = Figure(size=(1920, 1080))
-    plot_merge_tree_leaf_segmentation!(fig, data, diag; kwargs...)
+    plot_merge_tree_leaf_segmentation!(fig, raster, diag; kwargs...)
     return fig
 end
 function plot_merge_tree_leaf_segmentation!(
-    fig, data::Raster, diag; merge_tree=true, legend=true, kwargs...
+    fig, raster::Raster, diag; merge_tree=true, legend=true, kwargs...
 )
 
-    ax = plot_heatmap!(fig, data; kwargs...)
+    ax = plot_heatmap!(fig, raster; kwargs...)
 
     for (i, interval) in enumerate(diag)
         color = Cycled(i ≥ 3 ? i + 1 : i)
@@ -172,10 +172,10 @@ function plot_merge_tree_leaf_segmentation!(
         label = L"$%$(interval_str(interval))$ at %$threshold"
         color = Cycled(i ≥ 3 ? i + 1 : i)
 
-        plot_cycle!(ax, data, interval; threshold, label, color, merge_tree)
+        plot_cycle!(ax, raster, interval; threshold, label, color, merge_tree)
 
         if isfinite(death(interval)) && threshold ≠ death(interval)
-            plot_cycle!(ax, data, interval; threshold=death(interval), label, color, merge_tree=false, linestyle=:dot)
+            plot_cycle!(ax, raster, interval; threshold=death(interval), label, color, merge_tree=false, linestyle=:dot)
         end
     end
     if legend && !isempty(diag)

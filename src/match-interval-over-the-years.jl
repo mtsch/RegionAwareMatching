@@ -71,7 +71,7 @@ function plot_a_cycle(year, intervals)
     # convert cycle to degrees
     for (i, interval) in enumerate(intervals)
         ismissing(interval) && continue
-        cycle = map(minimum_area_cycle(interval)) do (x, y)
+        cycle = map(minimum_area_cycle(interval)[1]) do (x, y)
             mean((x_deg[floor(Int,x)], x_deg[ceil(Int,x)])),
             mean((y_deg[floor(Int,y)], y_deg[ceil(Int,y)]))
         end
