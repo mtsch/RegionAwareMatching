@@ -1,6 +1,7 @@
 using CairoMakie
 using GeoMakie
 using LaTeXStrings
+using StatsBase
 
 include("shortest-rep.jl")
 
@@ -96,7 +97,7 @@ end
 Plot an interval as a cycle at a given `threshold`. `kwargs` are passed to `lines!`.
 """
 function plot_cycle!(
-    ax, raster::Raster, interval;
+    ax, raster::Raster, interval::PersistenceInterval;
     linestyle=:solid,
     linewidth=2,
     threshold=death(interval),
@@ -140,6 +141,24 @@ function plot_cycle(raster::Raster, interval; kwargs...)
     ax = plot_heatmap!(fig, raster)
     plot_cycle!(ax, raster, interval; kwargs...)
     return fig
+end
+
+function plot_cycle!(
+    ax, raster::Raster, cycle::Vector{Tuple{Float64, Float64}};
+    linestyle=:solid, linewidth=2, kwargs...
+)
+    x_rad, y_rad = dims(raster)
+    x_deg = rad2deg.(x_rad)
+    y_deg = rad2deg.(y_rad)
+
+    remapped_cycle = map(cycle) do (x, y)
+        (
+            mean((x_deg[floor(Int, x)], x_deg[ceil(Int, x)])),
+            mean((y_deg[floor(Int, y)], y_deg[ceil(Int, y)])),
+        )
+    end
+
+    lines!(ax, remapped_cycle; linestyle, linewidth, kwargs...)
 end
 
 """

@@ -19,8 +19,8 @@ a `Matrix{Float32}`.
 
 The data needs to be placed in the `data` directory for this to work.
 """
-function load_data(year; raster=false)
-    res = Raster("$(file_basename(year)).tif")
+function load_data(year; raster=false, lazy=true)
+    res = Raster("$(file_basename(year)).tif"; lazy)
     if raster
         return res
     else
@@ -68,15 +68,15 @@ end
 
 Load a diagram from arrow file created by `save_diagram` and data file, or by `year`.
 """
-function load_diagram(year)
+function load_diagram(year; lazy=true)
     diagram_file = joinpath(@__DIR__, "../data/diagrams/$year.arrow")
     data_file = "$(file_basename(year)).tif"
 
-    return load_diagram(diagram_file, data_file)
+    return load_diagram(diagram_file, data_file; lazy)
 end
 
-function load_diagram(diagram_file, data_file)
-    df = DataFrame(Arrow.Table(diagram_file))
+function load_diagram(diagram_file, data_file; lazy=true)
+    df = DataFrame(Arrow.Table(lazy ? diagram_file : read(diagram_file)))
     data = -Raster(data_file).data
     filtration = Cubical(data)
 

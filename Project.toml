@@ -14,6 +14,3 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 Ripserer = "aa79e827-bd0b-42a8-9f10-2b302677a641"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-
-[compat]
-ArchGDAL = "0.10.9"

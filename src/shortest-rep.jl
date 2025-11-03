@@ -51,7 +51,6 @@ function representative_mask(representative, birth_simplex, threshold=Inf)
     for c in rep
         mask[c] = true
     end
-    # println(length(Set(rep)))
     return mask
 end
 
@@ -174,13 +173,7 @@ function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=
     end
     
     # Build a map from CartesianIndex to cubes for efficient lookup
-    pixel_to_cube = Dict{CartesianIndex{2}, eltype(representative)}()
-    # @time for cube in representative
-    #     v = only(vertices(cube))
-    #     pixel_to_cube[v] = cube
-    # end
     pixel_to_cube = Dict(only(vertices(cube)) => cube for cube in representative)
-
     
     # Get starting pixel (global minimum - the birth simplex)
     birth_vertex = only(vertices(birth_simplex))
@@ -223,8 +216,6 @@ function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=
     if isempty(region_set)
         return Tuple{Float64,Float64}[]
     end
-
-    # println(length(region_set))
     
     # Find starting point for tracing: leftmost-topmost pixel (lexicographically smallest)
     start_pixel_trace = minimum(x -> x.I, region_set)
