@@ -10,10 +10,10 @@ DATA_DIR = joinpath(@__DIR__, "../data/");
 # MATCH_DIR = joinpath(DATA_DIR, "match/match_pers0.01");
 # MATCH_STR = "original matching";
 
-# alternative matching
-IMG_DIR = joinpath(@__DIR__, "../imgs/spatial_pers0.01");
-MATCH_DIR = joinpath(DATA_DIR, "match/spatial_match_pers0.01");
-MATCH_STR = "alternative matching";
+# Jaccard matching
+IMG_DIR = joinpath(@__DIR__, "../imgs/jaccard_pers0.01");
+MATCH_DIR = joinpath(DATA_DIR, "match/jaccard_match_pers0.01");
+MATCH_STR = "Jaccard-based matching";
 
 LWD = 1.5
 

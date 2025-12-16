@@ -26,14 +26,6 @@ using Hungarian, PersistenceDiagrams
 using PersistenceDiagrams: Matching, MatchingDistance, _distance, _diagonal_interval
 import PersistenceDiagrams: _distances, _adjacency_matrix
 
-struct SpatialWasserstein <: MatchingDistance
-    p::Float64
-    q::Float64
-    min_overlap::Float64
-
-    SpatialWasserstein(p=1, q=Inf, min_overlap=0.0) = new(Float64(p), Float64(q), Float64(min_overlap))
-end
-
 RegionDict = Dict{Tuple{PersistenceInterval,Symbol},Set{CartesianIndex{2}}}
 
 function build_region_dict(diagram::PersistenceDiagram)
@@ -48,6 +40,16 @@ function build_region_dict(diagram::PersistenceDiagram)
     return region_dict
 end
 
+### Jaccard-based matching
+
+struct JaccardWasserstein <: MatchingDistance
+    p::Float64
+    q::Float64
+    min_overlap::Float64
+
+    JaccardWasserstein(p=1, q=Inf, min_overlap=0.0) = new(Float64(p), Float64(q), Float64(min_overlap))
+end
+
 function jaccard_sim(x1, x2)
     smaller, larger = length(x1) <= length(x2) ? (x1, x2) : (x2, x1)
     intersection_size = count(in(larger), smaller)
@@ -56,13 +58,13 @@ function jaccard_sim(x1, x2)
 end
 
 function _distances(
-    left, right, 
+    left::PersistenceDiagram, right::PersistenceDiagram, 
     left_region_dict::RegionDict, right_region_dict::RegionDict, 
-    p::Float64=1.0, q::Float64=Inf, min_overlap::Float64=0.0
+    jwas::JaccardWasserstein
 )
     dists = zeros(length(right), length(left))
     for j in eachindex(left), i in eachindex(right)
-        pers_dist = _distance(left[j], right[i], q)
+        pers_dist = _distance(left[j], right[i], jwas.q)
         if !isfinite(left[j]) || !isfinite(right[i])
             dists[i, j] = pers_dist
         else
@@ -77,10 +79,10 @@ function _distances(
                 min(jaccard_sim(left_child_reg, right_parent_reg), jaccard_sim(left_parent_reg, right_child_reg))
             )
             # cost if both intervals are matched to diagonal
-            pers_diag_dist = (_distance(left[j], _diagonal_interval(left[j]), q)^p + _distance(right[i], _diagonal_interval(right[i]), q)^p)^(1/p)
+            pers_diag_dist = (_distance(left[j], _diagonal_interval(left[j]), jwas.q)^jwas.p + _distance(right[i], _diagonal_interval(right[i]), jwas.q)^jwas.p)^(1/jwas.p)
             dists[i, j] = max(
                 pers_dist,
-                (pers_dist - pers_diag_dist) / (1 - min_overlap) * (region_sim - 1) + pers_dist
+                (pers_dist - pers_diag_dist) / (1 - jwas.min_overlap) * (region_sim - 1) + pers_dist
             )
         end
     end
@@ -90,30 +92,30 @@ end
 function _adjacency_matrix(
 	left::PersistenceDiagram, right::PersistenceDiagram, 
 	left_region_dict::RegionDict, right_region_dict::RegionDict, 
-	power=1, q=Inf, min_overlap::Float64=0.0
+	jwas::JaccardWasserstein
 )
     n = length(left)
     m = length(right)
     adj = fill(Inf, n + m, m + n)
 
-    dists = _distances(left, right, left_region_dict, right_region_dict, power, q, min_overlap)
+    dists = _distances(left, right, left_region_dict, right_region_dict, jwas)
     adj[axes(dists)...] .= dists
 
     for i in 1:n
-        adj[i + m, i] = _distance(left[i], _diagonal_interval(left[i]), q)
+        adj[i + m, i] = _distance(left[i], _diagonal_interval(left[i]), jwas.q)
     end
     for j in 1:m
-        adj[j, j + n] = _distance(right[j], _diagonal_interval(right[j]), q)
+        adj[j, j + n] = _distance(right[j], _diagonal_interval(right[j]), jwas.q)
     end
     adj[(m + 1):(m + n), (n + 1):(n + m)] .= 0.0
 
-    if power ≠ 1
-        adj .^= power
+    if jwas.p ≠ 1
+        adj .^= jwas.p
     end
     return adj
 end
 
-function (w::SpatialWasserstein)(
+function (jwas::JaccardWasserstein)(
     left::PersistenceDiagram, right::PersistenceDiagram; 
 	matching=false, 
 	left_region_dict::RegionDict=build_region_dict(left),
@@ -128,10 +130,10 @@ function (w::SpatialWasserstein)(
     end
 
     if count(!isfinite, left) == count(!isfinite, right)
-        adj = _adjacency_matrix(right, left, right_region_dict, left_region_dict, w.p, w.q, w.min_overlap)
+        adj = _adjacency_matrix(right, left, right_region_dict, left_region_dict, jwas)
         match = collect(i => j for (i, j) in enumerate(hungarian(adj)[1]))
 
-        distance = sum(adj[i, j] for (i, j) in match)^(1 / w.p)
+        distance = sum(adj[i, j] for (i, j) in match)^(1 / jwas.p)
 
         if matching
             return Matching(left, right, distance, match, false)
@@ -147,12 +149,72 @@ function (w::SpatialWasserstein)(
     end
 end
 
-## produces matchings for all pairs of consecutive years
+### Region-based matching
+
+struct RegionWasserstein <: MatchingDistance
+    p::Float64
+    q::Float64
+
+    RegionWasserstein(p=1, q=Inf) = new(Float64(p), Float64(q))
+end
+
+function (rwas::RegionWasserstein)(
+    left::PersistenceDiagram, right::PersistenceDiagram,
+    left_raster::Raster, right_raster::Raster; 
+	matching=false, 
+	left_region_dict::RegionDict=build_region_dict(left),
+	right_region_dict::RegionDict=build_region_dict(right)
+)
+	# TODO
+end
+
+
+### Main functions
+
+## produces Jaccard-based matchings for all pairs of consecutive years
+# function main()
+#     years = 1990:2020
+#     for yr1 in years[1:end-1]
+#         yr2 = yr1 + 1
+#         diagram1 = load_diagram(yr1; lazy=false); diagram2 = load_diagram(yr2; lazy=false);
+
+#         # area_cutoff = 1000
+#         # filter!(x -> area(x) >= area_cutoff, diagram1.intervals)
+#         # filter!(x -> area(x) >= area_cutoff, diagram2.intervals)
+#         pers_cutoff = 0.01
+#         cutoff_func(x) = persistence(x) >= pers_cutoff
+#         filter!(cutoff_func, diagram1.intervals)
+#         filter!(cutoff_func, diagram2.intervals)   
+#         for itv in diagram1.intervals
+#             filter!(cutoff_func, itv.children)
+#         end
+#         for itv in diagram2.intervals
+#             filter!(cutoff_func, itv.children)
+#         end     
+
+#         @info "$yr1-$yr2" length(diagram1) length(diagram2)
+
+#         regdict1 = build_region_dict(diagram1);
+#         regdict2 = build_region_dict(diagram2);
+
+#         spatial_matching = JaccardWasserstein()(
+#             diagram1, diagram2; 
+#             left_region_dict=regdict1, right_region_dict=regdict2, matching=true
+#         );
+
+#         output = matching_to_df(spatial_matching)
+#         Arrow.write(joinpath(@__DIR__, "../data/match/jaccard_match_pers$(pers_cutoff)_$(yr1)_$(yr2).arrow"), output)
+#     end
+#     @info "fin."
+# end
+
+## produces Region-aware matchings for all pairs of consecutive years
 function main()
     years = 1990:2020
     for yr1 in years[1:end-1]
         yr2 = yr1 + 1
         diagram1 = load_diagram(yr1; lazy=false); diagram2 = load_diagram(yr2; lazy=false);
+        raster1 = load_data(yr1; raster=true, lazy=false); raster2 = load_data(yr2; raster=true, lazy=false);
 
         # area_cutoff = 1000
         # filter!(x -> area(x) >= area_cutoff, diagram1.intervals)
@@ -173,13 +235,13 @@ function main()
         regdict1 = build_region_dict(diagram1);
         regdict2 = build_region_dict(diagram2);
 
-        spatial_matching = SpatialWasserstein()(
-            diagram1, diagram2; 
+        spatial_matching = RegionWasserstein()(
+            diagram1, diagram2, raster1, raster2; 
             left_region_dict=regdict1, right_region_dict=regdict2, matching=true
         );
 
         output = matching_to_df(spatial_matching)
-        Arrow.write(joinpath(@__DIR__, "../data/match/spatial_match_pers$(pers_cutoff)_$(yr1)_$(yr2).arrow"), output)
+        Arrow.write(joinpath(@__DIR__, "../data/match/region_match_pers$(pers_cutoff)_$(yr1)_$(yr2).arrow"), output)
     end
     @info "fin."
 end

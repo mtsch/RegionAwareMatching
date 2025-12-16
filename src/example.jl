@@ -1,4 +1,4 @@
-nclude("data-loading.jl")
+include("data-loading.jl")
 include("merge-trees.jl")
 include("plotting-utils.jl")
 
