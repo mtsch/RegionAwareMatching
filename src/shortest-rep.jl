@@ -4,9 +4,53 @@
 using Ripserer, PersistenceDiagrams
 using DelaunayTriangulation
 using StaticArrays
+using DataStructures
 using DataFramesMeta
 using Arrow
 using Rasters, ArchGDAL, JSON
+
+# 4-connectivity offsets
+OFFSETS = (
+    CartesianIndex(1, 0),
+    CartesianIndex(-1, 0),
+    CartesianIndex(0, 1),
+    CartesianIndex(0, -1)
+)
+
+# Merge tree leaf segmentation for region-aware tracking (https://arxiv.org/abs/2510.16486)
+
+SegDict = Dict{PersistenceInterval,Set{CartesianIndex{2}}};
+
+function build_segmentation(diagram::PersistenceDiagram, raster::Raster; death_cutoff=Inf)::SegDict
+    itvs_by_birth = sort(diagram.intervals, by=birth)
+    segment_arr = zeros(Int, size(raster.data));
+    pqueue = PriorityQueue();
+    for (idx, itv) in enumerate(itvs_by_birth)
+        vertex = only(vertices(itv.birth_simplex))
+        enqueue!(pqueue, (vertex, idx), (-raster[vertex], idx))
+    end
+    while !isempty(pqueue)
+        curr_vertex, curr_idx = dequeue!(pqueue)
+        segment_arr[curr_vertex] == 0 || continue # skip if vertex is already assigned a region
+        segment_arr[curr_vertex] = curr_idx
+        for offset in OFFSETS
+            neighbour = curr_vertex + offset
+            val = -raster[neighbour]
+            if val < death_cutoff && val < death(itvs_by_birth[curr_idx]) && segment_arr[neighbour] == 0
+                pqueue[(neighbour, curr_idx)] = (val, curr_idx)
+            end
+        end
+    end
+
+    segmentation = Dict(itv => Set{CartesianIndex}() for itv in itvs_by_birth);
+    for I in CartesianIndices(segment_arr)
+        if segment_arr[I] > 0
+            push!(segmentation[itvs_by_birth[segment_arr[I]]], I)
+        end
+    end
+
+    return segmentation
+end
 
 """
     threshold_representative(filtration, interval, thresh)
@@ -185,14 +229,6 @@ function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=
     sizehint!(region_set, length(representative)) 
     sizehint!(stack, 4length(representative))
     
-    # 4-connectivity offsets
-    OFFSETS = (
-        CartesianIndex(1, 0),
-        CartesianIndex(-1, 0),
-        CartesianIndex(0, 1),
-        CartesianIndex(0, -1)
-    )
-    
     while !isempty(stack)
         curr = pop!(stack)
         
@@ -206,10 +242,10 @@ function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=
         
         push!(region_set, curr)
         
-        # Add 4-connected neighbors to stack
+        # Add 4-connected neighbours to stack
         for offset in OFFSETS
-            neighbor = curr + offset
-            neighbor ∉ region_set && push!(stack, neighbor)
+            neighbour = curr + offset
+            neighbour ∉ region_set && push!(stack, neighbour)
         end
     end
     
@@ -240,7 +276,7 @@ function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=
     prev_point_j = typemin(Int)
     
     for _ in 1:step_limit
-        # Get 8-neighborhood - compute directly without allocations
+        # Get 8-neighbourhood - compute directly without allocations
         south = in_region_inline(curr_i + 1, curr_j)
         south_east = in_region_inline(curr_i + 1, curr_j + 1)
         east = in_region_inline(curr_i, curr_j + 1)
@@ -262,7 +298,7 @@ function minimum_area_cycle(interval; threshold::Float64=Inf, step_limit::Int64=
             prev_point_j = point_j
         end
         
-        # Moore neighborhood boundary tracing (same rules as minimum_area_cycle)
+        # Moore neighbourhood boundary tracing (same rules as minimum_area_cycle)
         # Move south
         if (west || south_west) && !south
             curr_i += 1

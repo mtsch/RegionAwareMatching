@@ -1,9 +1,15 @@
-using CairoMakie
-using GeoMakie
-using LaTeXStrings
+using CairoMakie, GeoMakie
+using ColorSchemes, LaTeXStrings
 using StatsBase
 
 include("shortest-rep.jl")
+
+HUES = map(x->convert(LCHuv, x).h, distinguishable_colors(8; cchoices=[40.], lchoices=[70.]))
+COLORMAPS = [
+    sequential_palette(h, 100; s=0.75, c=0.75, b=0.9, w=0., d=0.) for h in HUES
+];
+GRAYMAP = sequential_palette(0., 100; s=0., c=0.75, b=0.9, w=0., d=0.)
+reduce(hcat, COLORMAPS)'
 
 """
     interval_str(interval)
@@ -234,5 +240,50 @@ function plot_all_at_threshold(
     return fig
 end
 
-# ylims=(-20, 20)
-# xlims=(10, 40)
+function plot_segmentation!(
+    ax::GeoAxis, raster::Raster, 
+    segmentation::Dict{PersistenceInterval,Set{CartesianIndex{2}}}, 
+    cmap_dict::Dict{PersistenceInterval,Int};
+    colormaps=COLORMAPS,
+    coastlines=true,
+    kwargs...
+)
+    x_rad, y_rad = dims(raster)
+    x_deg = rad2deg.(x_rad)
+    y_deg = rad2deg.(y_rad)
+
+    x = extrema(x_deg)
+    y = reverse(extrema(y_deg))
+
+    # replace -Inf with missing for nicer plot
+    data = Matrix{Union{Missing,eltype(raster.data)}}(raster.data)
+    data[.!isfinite.(data)] .= missing
+
+    nx, ny = size(data)
+    img = fill(RGB{Float64}(1, 1, 1), nx, ny)
+
+    for cidx in eachindex(data)
+        ismissing(data[cidx]) && continue
+        img[cidx] = GRAYMAP[round(Int, data[cidx] * (length(GRAYMAP)-1)) + 1]
+    end
+
+    for (itv, cidxs) in pairs(segmentation)       
+        cmap_dict[itv] == 0 && continue
+        cmap = colormaps[cmap_dict[itv]]
+        for cidx in cidxs
+            img[cidx] = cmap[round(Int, data[cidx] * (length(cmap)-1)) + 1]
+            for offset in OFFSETS
+                if (cidx + offset) ∉ cidxs
+                    img[cidx] = cmap[end] # use darkest colour for region borders
+                end
+            end
+        end
+    end
+
+    hm = image!(ax, x, y, img)
+    if coastlines
+        lines!(GeoMakie.coastlines(), color="black")
+    end
+
+    return hm
+end
