@@ -9,7 +9,7 @@ death_cutoff = -0.05 # level sets will be clamped below death cutoff
 cutoff_func(x) = persistence(x) >= pers_cutoff && birth(x) <= death_cutoff # birth should occur after death cutoff
 
 DATA_DIR = joinpath(@__DIR__, "../data/");
-IMG_DIR = joinpath(@__DIR__, "../imgs/vines_pers$(pers_cutoff)_death$(-death_cutoff)");
+IMG_DIR = joinpath(@__DIR__, "../imgs/tracking_pers$(pers_cutoff)_death$(-death_cutoff)");
 MATCH_DIR = joinpath(DATA_DIR, "match/region_match_pers$(pers_cutoff)_death$(-death_cutoff)");
 
 # Functions
