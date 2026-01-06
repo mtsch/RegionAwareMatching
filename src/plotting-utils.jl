@@ -8,7 +8,7 @@ HUES = map(x->convert(LCHuv, x).h, distinguishable_colors(8; cchoices=[40.], lch
 COLORMAPS = [
     sequential_palette(h, 100; s=0.75, c=0.75, b=0.9, w=0., d=0.) for h in HUES
 ];
-GRAYMAP = sequential_palette(0., 100; s=0., c=0.75, b=0.9, w=0., d=0.)
+GRAYMAP = sequential_palette(0., 100; s=0., c=0.75, b=0.5, w=0., d=0.)
 reduce(hcat, COLORMAPS)'
 
 """
@@ -245,6 +245,8 @@ function plot_segmentation!(
     segmentation::Dict{PersistenceInterval,Set{CartesianIndex{2}}}, 
     cmap_dict::Dict{PersistenceInterval,Int};
     colormaps=COLORMAPS,
+    colorrange=(0,1),
+    threshold=-Inf,
     coastlines=true,
     kwargs...
 )
@@ -257,21 +259,27 @@ function plot_segmentation!(
 
     # replace -Inf with missing for nicer plot
     data = Matrix{Union{Missing,eltype(raster.data)}}(raster.data)
-    data[.!isfinite.(data)] .= missing
+    data[.!isfinite.(data) .|| data .< threshold] .= missing
 
     nx, ny = size(data)
     img = fill(RGB{Float64}(1, 1, 1), nx, ny)
 
+    cmin, cmax = colorrange
+    function map_color(v, colormap)
+        v_t = clamp((v-cmin)/(cmax-cmin), 0, 1)
+        colormap[round(Int, v_t * (length(colormap)-1)) + 1]
+    end
+
     for cidx in eachindex(data)
         ismissing(data[cidx]) && continue
-        img[cidx] = GRAYMAP[round(Int, data[cidx] * (length(GRAYMAP)-1)) + 1]
+        img[cidx] = map_color(data[cidx], GRAYMAP)
     end
 
     for (itv, cidxs) in pairs(segmentation)       
         cmap_dict[itv] == 0 && continue
         cmap = colormaps[cmap_dict[itv]]
         for cidx in cidxs
-            img[cidx] = cmap[round(Int, data[cidx] * (length(cmap)-1)) + 1]
+            img[cidx] = map_color(data[cidx], cmap)
             for offset in OFFSETS
                 if (cidx + offset) ∉ cidxs
                     img[cidx] = cmap[end] # use darkest colour for region borders
@@ -279,7 +287,7 @@ function plot_segmentation!(
             end
         end
     end
-
+    
     hm = image!(ax, x, y, img)
     if coastlines
         lines!(GeoMakie.coastlines(), color="black")
