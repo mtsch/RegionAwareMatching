@@ -23,6 +23,7 @@ SegDict = Dict{PersistenceInterval,Set{CartesianIndex{2}}};
 
 function build_segmentation(diagram::PersistenceDiagram, raster::Raster; death_cutoff=Inf)::SegDict
     itvs_by_birth = sort(diagram.intervals, by=birth)
+    idx_by_itv = Dict(reverse.(enumerate(itvs_by_birth)))
     segment_arr = zeros(Int, size(raster.data));
     pqueue = PriorityQueue();
     for (idx, itv) in enumerate(itvs_by_birth)
@@ -36,8 +37,9 @@ function build_segmentation(diagram::PersistenceDiagram, raster::Raster; death_c
         for offset in OFFSETS
             neighbour = curr_vertex + offset
             val = -raster[neighbour]
-            if val < death_cutoff && val < death(itvs_by_birth[curr_idx]) && segment_arr[neighbour] == 0
-                pqueue[(neighbour, curr_idx)] = (val, curr_idx)
+            if val < death_cutoff && segment_arr[neighbour] == 0
+                idx = val < death(itvs_by_birth[curr_idx]) ? curr_idx : idx_by_itv[itvs_by_birth[curr_idx].parent]
+                pqueue[(neighbour, idx)] = (val, idx)
             end
         end
     end

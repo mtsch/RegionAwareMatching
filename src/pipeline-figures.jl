@@ -25,6 +25,7 @@ raster = load_data(year; raster = true, lazy = false);
 segmentation = build_segmentation(diagram, raster; death_cutoff);
 
 maximum(raster.data)
+CMAX = 0.5
 
 begin
     fig = Figure(size=(600, 500))
@@ -47,21 +48,22 @@ begin
     cmap_dict = Dict(itv => 0 for itv in diagram.intervals)
     hm = plot_segmentation!(
         ax, raster, segmentation, cmap_dict; 
-        threshold=-death_cutoff, colorrange=(0, 0.5),
+        threshold=-death_cutoff, colorrange=(0, CMAX),
     )
-    Colorbar(fig[1, 2], limits = (0, 0.5), colormap = GRAYMAP)
+    Colorbar(fig[1, 2], limits = (0, CMAX), colormap = GRAYMAP)
     # display(fig)
-    save(joinpath(IMG_DIR, "$(year)_masked_domain.png"), fig)
+    save(joinpath(IMG_DIR, "$(year)_masked_domain.png"), fig, px_per_unit=4)
 end
 
 itvs_by_area = sort(diagram.intervals, by=(itv)->length(segmentation[itv]), rev=true);
+itvs_by_area[1:4]
 itvs_by_area[2].death
 itvs_by_area[3].death
 
 thresholds = [0.2, 0.1, -itvs_by_area[3].death, -itvs_by_area[2].death, 0.05];
-to_color_vec = [nothing, nothing, 3, 2, 1];
+color_int_vec = [nothing, nothing, 3, 2, 1];
 
-for (thres, to_color) in zip(thresholds, to_color_vec)
+for (thres, color_int) in zip(thresholds, color_int_vec)
     thres_rounded = round(thres, digits=3)
 
     fig = Figure(size=(600, 500))
@@ -83,14 +85,14 @@ for (thres, to_color) in zip(thresholds, to_color_vec)
     )
 
     cmap_dict = Dict(itv => 0 for itv in diagram.intervals)
-    if !isnothing(to_color)
-        cmap_dict[itvs_by_area[to_color]] = to_color
+    if !isnothing(color_int)
+        cmap_dict[itvs_by_area[color_int]] = color_int
     end
     hm = plot_segmentation!(
         ax, raster, segmentation, cmap_dict; 
-        threshold=thres, colorrange=(0, 0.5),
+        threshold=thres, colorrange=(0, CMAX),
     )
-    Colorbar(fig[1, 2], limits = (0, 0.5), colormap = GRAYMAP)
+    Colorbar(fig[1, 2], limits = (0, CMAX), colormap = GRAYMAP)
     # display(fig)
-    save(joinpath(IMG_DIR, "$(year)_levelset_$(thres_rounded).png"), fig)
+    save(joinpath(IMG_DIR, "$(year)_levelset_$(thres_rounded).png"), fig, px_per_unit=4)
 end

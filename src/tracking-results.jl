@@ -57,7 +57,7 @@ function plot_vines(vines, segmentations; display_fig=true, save_dir=nothing, ti
     (save_dir !== nothing) && mkpath(save_dir)
     for year in yr_start:yr_end
         raster = load_data(year; raster = true, lazy = false)
-        fig = Figure()
+        fig = Figure(size=(500, 500))
         x_rad, y_rad = dims(raster)
         x_deg = rad2deg.(x_rad)
         y_deg = rad2deg.(y_rad)
@@ -85,7 +85,7 @@ function plot_vines(vines, segmentations; display_fig=true, save_dir=nothing, ti
         plot_segmentation!(ax, raster, segmentation, cmap_dict)
         display_fig && display(fig)
         if save_dir !== nothing
-            save(joinpath(save_dir, "$(year).png"), fig)
+            save(joinpath(save_dir, "$(year).png"), fig, px_per_unit=4)
         end
         GC.gc()
     end
@@ -101,6 +101,15 @@ function plot_vine_persistence!(ax, vine, colormap)
         strokecolor=colormap[end], strokewidth=2, 
         color=(colormap[nc÷3], 0.3)
     )
+end
+
+using CSV
+function export_vine_persistence(vine, fn)
+    years = vine.times
+    births = birth.(vine.itvs)
+    deaths = min.(death.(vine.itvs), 0.)
+    mat = [years -deaths -births]
+    CSV.write(fn, Tables.table(mat))
 end
 
 function get_area(itv, year, segmentations)
@@ -142,6 +151,11 @@ vtx2itv_dicts = Dict(year => Dict(
 vines = build_vines(all_years, vtx2itv_dicts, MATCH_DIR);
 sort(countmap(length.(vines))) # summarise vine length
 sort_by_totarea = sort(vines, by=(vine)->sum(get_area.(vine.itvs, vine.times, Ref(segmentations))), rev=true);
+
+for k in 1:8
+    vine = sort_by_totarea[k]
+    export_vine_persistence(vine, "$(MATCH_DIR)_vine$k.csv")
+end
 
 begin
     fig = Figure(size=(1200, 400))

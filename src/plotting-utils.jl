@@ -281,7 +281,8 @@ function plot_segmentation!(
         for cidx in cidxs
             img[cidx] = map_color(data[cidx], cmap)
             for offset in OFFSETS
-                if (cidx + offset) ∉ cidxs
+                neighbour = cidx + offset
+                if neighbour ∉ cidxs && (ismissing(data[neighbour]) || data[neighbour] < data[cidx])
                     img[cidx] = cmap[end] # use darkest colour for region borders
                 end
             end
