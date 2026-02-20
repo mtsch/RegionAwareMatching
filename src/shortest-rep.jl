@@ -17,7 +17,7 @@ OFFSETS = (
     CartesianIndex(0, -1)
 )
 
-# Merge tree leaf segmentation for region-aware tracking (https://arxiv.org/abs/2510.16486)
+# Merge tree segmentation for region-aware tracking (https://arxiv.org/abs/2510.16486)
 
 SegDict = Dict{PersistenceInterval,Set{CartesianIndex{2}}};
 

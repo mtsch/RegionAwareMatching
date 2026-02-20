@@ -1,8 +1,12 @@
-include("region-wasmatch.jl");
+include("data-loading.jl");
+include("merge-trees.jl");
+include("shortest-rep.jl");
 include("plotting-utils.jl");
 
+using ProgressMeter
+
 # Plot segmentations
-for yr in 1990:2020
+@showprogress for yr in 1990:2020
     diagram = load_diagram(yr; lazy=false);
     raster = load_data(yr; raster=true, lazy=false);
 
@@ -31,7 +35,7 @@ for yr in 1990:2020
             limits=(extrema(x_deg), extrema(y_deg)),
             xticklabelsvisible=false, yticklabelsvisible=false,
             xgridvisible=false, ygridvisible=false,           
-            title="Merge tree leaf segmentation for $yr",
+            title="Merge tree segmentation for $yr",
         );
         plot_segmentation!(ax, raster, segmentation, cmap_dict)
         # display(fig)
