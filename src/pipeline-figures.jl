@@ -96,3 +96,25 @@ for (thres, color_int) in zip(thresholds, color_int_vec)
     # display(fig)
     save(joinpath(IMG_DIR, "$(year)_levelset_$(thres_rounded).png"), fig, px_per_unit=4)
 end
+
+
+num_plot = 8
+cmap_dict = Dict(itv => idx > 8 ? 0 : idx for (idx, itv) in enumerate(itvs_by_area));
+begin
+    fig = Figure(size=(500, 500));
+    x_rad, y_rad = dims(raster)
+    x_deg = rad2deg.(x_rad)
+    y_deg = rad2deg.(y_rad)
+    lyt = GridLayout(fig[1,1])
+    ax = GeoAxis(
+        lyt[1, 1];
+        dest=EPSG(4326),
+        limits=(extrema(x_deg), extrema(y_deg)),
+        xticklabelsvisible=false, yticklabelsvisible=false,
+        xgridvisible=false, ygridvisible=false,           
+        title="Merge tree segmentation for $year",
+    );
+    plot_segmentation!(ax, raster, segmentation, cmap_dict)
+    display(fig)
+    save(joinpath(IMG_DIR, "$(year)_segmentation.png"), fig, px_per_unit=4)
+end
