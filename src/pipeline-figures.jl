@@ -48,10 +48,10 @@ begin
     cmap_dict = Dict(itv => 0 for itv in diagram.intervals)
     hm = plot_segmentation!(
         ax, raster, segmentation, cmap_dict; 
-        threshold=-death_cutoff, colorrange=(0, CMAX),
+        threshold=-death_cutoff, colorrange=(0, CMAX), domain_border=true
     )
     Colorbar(fig[1, 2], limits = (0, CMAX), colormap = GRAYMAP)
-    # display(fig)
+    display(fig)
     save(joinpath(IMG_DIR, "$(year)_masked_domain.png"), fig, px_per_unit=4)
 end
 
@@ -62,6 +62,36 @@ itvs_by_area[3].death
 
 thresholds = [0.2, 0.1, -itvs_by_area[3].death, -itvs_by_area[2].death, 0.05];
 color_int_vec = [nothing, nothing, 3, 2, 1];
+
+for (thres, color_int) in zip(thresholds, color_int_vec)
+    thres_rounded = round(thres, digits=3)
+
+    fig = Figure(size=(600, 500))
+    x_rad, y_rad = dims(raster)
+    x_deg = rad2deg.(x_rad)
+    y_deg = rad2deg.(y_rad)
+    lyt = GridLayout(fig[1,1])
+    ax = GeoAxis(
+        lyt[1, 1];
+        dest=EPSG(4326),
+        limits=(extrema(x_deg), extrema(y_deg)),
+        xticklabelsvisible=false,
+        xgridvisible=false,
+        yticklabelsvisible=false,
+        ygridvisible=false,
+        title="Resistance prevalence in $year (>$(thres_rounded) only)",
+        titlesize=16
+    )
+
+    cmap_dict = Dict(itv => 0 for itv in diagram.intervals)
+    hm = plot_segmentation!(
+        ax, raster, segmentation, cmap_dict; 
+        threshold=thres, colorrange=(0, CMAX), domain_border=true
+    )
+    Colorbar(fig[1, 2], limits = (0, CMAX), colormap = GRAYMAP)
+    display(fig)
+    save(joinpath(IMG_DIR, "$(year)_bordered_$(thres_rounded).png"), fig, px_per_unit=4)
+end
 
 for (thres, color_int) in zip(thresholds, color_int_vec)
     thres_rounded = round(thres, digits=3)
@@ -93,7 +123,7 @@ for (thres, color_int) in zip(thresholds, color_int_vec)
         threshold=thres, colorrange=(0, CMAX),
     )
     Colorbar(fig[1, 2], limits = (0, CMAX), colormap = GRAYMAP)
-    # display(fig)
+    display(fig)
     save(joinpath(IMG_DIR, "$(year)_levelset_$(thres_rounded).png"), fig, px_per_unit=4)
 end
 

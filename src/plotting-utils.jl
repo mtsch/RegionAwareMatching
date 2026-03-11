@@ -248,6 +248,7 @@ function plot_segmentation!(
     colorrange=(0,1),
     threshold=-Inf,
     coastlines=true,
+    domain_border=false,
     kwargs...
 )
     x_rad, y_rad = dims(raster)
@@ -270,22 +271,32 @@ function plot_segmentation!(
         colormap[round(Int, v_t * (length(colormap)-1)) + 1]
     end
 
-    for cidx in eachindex(data)
-        ismissing(data[cidx]) && continue
-        img[cidx] = map_color(data[cidx], GRAYMAP)
-    end
-
-    for (itv, cidxs) in pairs(segmentation)       
-        cmap_dict[itv] == 0 && continue
-        cmap = colormaps[cmap_dict[itv]]
+    # for cidx in eachindex(data)
+    #     ismissing(data[cidx]) && continue
+    #     img[cidx] = map_color(data[cidx], GRAYMAP)
+    # end
+    
+    for (itv, cidxs) in pairs(segmentation)
+        cmap = cmap_dict[itv] == 0 ? GRAYMAP : colormaps[cmap_dict[itv]]            
         for cidx in cidxs
-            img[cidx] = map_color(data[cidx], cmap)
-            for offset in OFFSETS
-                neighbour = cidx + offset
-                if neighbour ∉ cidxs && (ismissing(data[neighbour]) || data[neighbour] < data[cidx])
-                    img[cidx] = cmap[end] # use darkest colour for region borders
-                end
+            if !ismissing(data[cidx])
+                img[cidx] = map_color(data[cidx], cmap)
             end
+            plot_border = false
+            if cmap_dict[itv] == 0 && !isfinite(death(itv)) && domain_border
+                plot_border = true
+            end
+            if cmap_dict[itv] != 0 && !ismissing(data[cidx])
+                plot_border = true
+            end
+            if plot_border
+                for offset in OFFSETS
+                    neighbour = cidx + offset
+                    if neighbour ∉ cidxs && (raster.data[neighbour] < raster.data[cidx])
+                        img[cidx] = cmap == GRAYMAP ? RGB{Float64}(0, 0, 0) : cmap[end] # use darkest colour for region borders
+                    end
+                end
+            end           
         end
     end
     
