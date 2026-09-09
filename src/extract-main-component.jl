@@ -2,8 +2,11 @@ using Rasters, Ripserer, ArchGDAL, Plots
 using ImageMorphology
 using BenchmarkTools
 
+RAS_DIR = joinpath(joinpath(@__DIR__, "../rasters"))
+OUT_DIR = joinpath(joinpath(@__DIR__, "../data/tif"))
+
 function extract_main_component(year)
-    raster_original = Raster("dhps_mapping_data/540_rasters/Resistance_median_$(year).tif"); 
+    raster_original = Raster(joinpath(RAS_DIR, "Resistance_median_$(year).tif")); 
     raster = copy(raster_original.data)
     
     # set all resistance values equal to one
@@ -29,7 +32,7 @@ function extract_main_component(year)
 
 
     # save as tif file
-    write("data_main_component_$(year).tif", raster_original)
+    write(joinpath(OUT_DIR, "data_main_component_$(year).tif"), raster_original)
 end 
 
 for year in 1990:2020

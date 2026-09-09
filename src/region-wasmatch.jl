@@ -176,6 +176,8 @@ end
 
 ## produces region-aware matchings for all pairs of consecutive years
 function main()
+    regenerate_diagrams() # comment out if diagrams already generated
+
     years = 1990:2020
     death_cutoff = -0.05
     pers_cutoff = 0.01

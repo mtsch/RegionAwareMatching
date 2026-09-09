@@ -1,5 +1,5 @@
 library(raster)
-raster_folder = "/dhps_mapping_data/540_rasters" # where rasters are saved
+raster_folder = "/rasters" # where rasters are saved
 
 for (year in seq(1990, 2020)){ # loop over years
   print(year)
